@@ -1,0 +1,180 @@
+
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Carte cadeau + tri par date</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      padding: 1em;
+      background: #f4f4f4;
+    }
+    h1 {
+      text-align: center;
+    }
+    .card {
+      background: #fff;
+      padding: 1em;
+      margin-bottom: 1em;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    input, button {
+      width: 100%;
+      padding: 0.5em;
+      margin-top: 0.5em;
+      font-size: 1em;
+    }
+    img {
+      max-width: 100%;
+      margin-top: 0.5em;
+      border-radius: 6px;
+    }
+    .error {
+      color: red;
+      margin-top: 0.5em;
+    }
+    .actions {
+      display: flex;
+      gap: 0.5em;
+      margin-top: 0.5em;
+    }
+    .actions button {
+      flex: 1;
+    }
+    .history {
+      margin-top: 0.5em;
+      font-size: 0.9em;
+      color: #333;
+    }
+    .history ul {
+      margin: 0.3em 0 0 1em;
+      padding: 0;
+    }
+    #recherche {
+      margin-bottom: 1em;
+    }
+  </style>
+</head>
+<body>
+  <h1>Carte cadeau + tri par date</h1>
+
+  <input type="text" id="recherche" placeholder="Rechercher une carte..." oninput="afficherCartes()"/>
+
+  <div class="card">
+    <input type="text" id="nom" placeholder="Nom de la carte" />
+    <input type="number" id="solde" placeholder="Solde (€)" />
+    <input type="date" id="expiration" placeholder="Date d'expiration" />
+    <input type="file" id="photo" accept="image/*" />
+    <button onclick="ajouterCarte()">Ajouter</button>
+    <div id="erreur" class="error"></div>
+  </div>
+
+  <div id="liste"></div>
+
+  <script>
+    let cartes = [];
+
+    function ajouterCarte() {
+      const nom = document.getElementById("nom").value.trim();
+      const solde = parseFloat(document.getElementById("solde").value);
+      const expiration = document.getElementById("expiration").value;
+      const photoInput = document.getElementById("photo");
+      const erreur = document.getElementById("erreur");
+      erreur.textContent = "";
+
+      if (!nom || isNaN(solde) || !expiration) {
+        erreur.textContent = "Nom, solde et date obligatoires.";
+        return;
+      }
+
+      if (photoInput.files.length === 0) {
+        erreur.textContent = "Photo obligatoire.";
+        return;
+      }
+
+      const fichier = photoInput.files[0];
+      const reader = new FileReader();
+
+      reader.onload = function () {
+        const carte = {
+          nom: nom,
+          solde: solde,
+          expiration: expiration,
+          photo: reader.result,
+          historique: []
+        };
+        cartes.push(carte);
+        afficherCartes();
+        document.getElementById("nom").value = "";
+        document.getElementById("solde").value = "";
+        document.getElementById("expiration").value = "";
+        document.getElementById("photo").value = "";
+      };
+
+      reader.onerror = function () {
+        erreur.textContent = "Erreur de chargement de la photo.";
+      };
+
+      reader.readAsDataURL(fichier);
+    }
+
+    function afficherCartes() {
+      const recherche = document.getElementById("recherche").value.toLowerCase();
+      const liste = document.getElementById("liste");
+      liste.innerHTML = "";
+
+      // Trier par date d'expiration (plus proche en premier)
+      const triées = cartes
+        .filter(carte => carte.nom.toLowerCase().includes(recherche))
+        .sort((a, b) => new Date(a.expiration) - new Date(b.expiration));
+
+      triées.forEach((carte, index) => {
+        let historiqueHTML = "";
+        if (carte.historique && carte.historique.length > 0) {
+          historiqueHTML = "<div class='history'><strong>Historique :</strong><ul>";
+          carte.historique.forEach(item => {
+            historiqueHTML += `<li>- ${item.montant} € le ${item.date}</li>`;
+          });
+          historiqueHTML += "</ul></div>";
+        }
+
+        const div = document.createElement("div");
+        div.className = "card";
+        div.innerHTML = `
+          <strong>${carte.nom}</strong><br>
+          Solde : <span>${carte.solde.toFixed(2)}</span> €<br>
+          Expire le : ${carte.expiration}<br>
+          <img src="${carte.photo}" alt="Photo" />
+          <div class="actions">
+            <button onclick="utiliserSolde(${cartes.indexOf(carte)})">Utiliser</button>
+          </div>
+          ${historiqueHTML}
+        `;
+        liste.appendChild(div);
+      });
+    }
+
+    function utiliserSolde(index) {
+      const montant = parseFloat(prompt("Montant utilisé (€) :"));
+      if (!isNaN(montant) && montant > 0 && montant <= cartes[index].solde) {
+        cartes[index].solde -= montant;
+
+        if (!cartes[index].historique) cartes[index].historique = [];
+        cartes[index].historique.push({
+          montant: montant.toFixed(2),
+          date: new Date().toLocaleDateString()
+        });
+
+        afficherCartes();
+      } else {
+        alert("Montant invalide ou supérieur au solde.");
+      }
+    }
+
+    window.onload = afficherCartes;
+  </script>
+</body>
+</html>
